@@ -49,7 +49,20 @@ AI Agent 开发与运维工具集工作区。本仓库是**聚合仓库**（母�
 
 ## 快速开始
 
-### 0. 克隆本仓库（含子模块）
+### 一键启动（推荐）
+
+```bash
+./quick-start.sh walicode          # 中间件 + 服务端(8091) + Tauri 客户端
+./quick-start.sh walissh --web     # 客户端改用纯前端模式（Vite @5173）
+./quick-start.sh walicode --no-client   # 只起中间件 + 服务端
+./quick-start.sh walicode stop     # 停止后台服务端
+```
+
+脚本会自动完成：依赖检查 → 子模块初始化 → docker 中间件 → 建库导 SQL → 服务端构建与后台启动（日志在 `.quick-start/`）→ 客户端启动。首次使用前仍需手动配置 LLM API Key（见下文第 3 步）。
+
+### 手动分步启动
+
+#### 0. 克隆本仓库（含子模块）
 
 ```bash
 git clone --recursive https://github.com/wuxiy/agent-os.git
@@ -57,7 +70,7 @@ git clone --recursive https://github.com/wuxiy/agent-os.git
 git submodule update --init
 ```
 
-### 1. 启动 WaLiAPI（模型网关，可选但推荐）
+#### 1. 启动 WaLiAPI（模型网关，可选但推荐）
 
 ```bash
 cd WaLiAPI
@@ -67,7 +80,7 @@ pnpm tauri dev        # 桌面应用 + 内嵌网关服务 http://127.0.0.1:8777
 
 在界面中配置上游渠道 API Key 后，下游可用 `sk-waliapi-*` 密钥以 OpenAI 协议接入。
 
-### 2. 启动中间件（walicode / walissh 通用）
+#### 2. 启动中间件（walicode / walissh 通用）
 
 ```bash
 cd <walicode|walissh>/xxx-server/docs/dev-ops
@@ -77,7 +90,7 @@ docker-compose -f docker-compose-environment.yml up -d
 
 然后手动建库 `walissh` 并导入 `mysql/sql/walissh.sql`（walicode 还需 `core_memory_ddl.sql`）。
 
-### 3. 启动服务端（端口 8091）
+#### 3. 启动服务端（端口 8091）
 
 先配置 LLM Key（`xxx-server-app/src/main/resources/application-dev.yml` 与 `agent/*.yml` 两处，可指向 WaLiAPI 网关），然后：
 
@@ -87,7 +100,7 @@ mvn clean install -DskipTests
 cd xxx-server-app && mvn spring-boot:run
 ```
 
-### 4. 启动客户端
+#### 4. 启动客户端
 
 ```bash
 cd xxx-client

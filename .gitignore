@@ -3,3 +3,6 @@
 
 # walissh 运行时日志目录（日志中含敏感信息，不入库）
 walissh/data/
+
+# quick-start.sh 运行时状态（PID / 日志）
+.quick-start/
