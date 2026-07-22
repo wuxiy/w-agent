@@ -1,0 +1,5 @@
+.DS_Store
+.idea/
+
+# walissh 运行时日志目录（日志中含敏感信息，不入库）
+walissh/data/

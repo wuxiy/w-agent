@@ -1,0 +1,15 @@
+[submodule "WaLiAPI"]
+	path = WaLiAPI
+	url = https://github.com/fuzhengwei/WaLiAPI.git
+[submodule "walicode/walicode-client"]
+	path = walicode/walicode-client
+	url = git@gitcode.net:KnowledgePlanet/walicode-client.git
+[submodule "walicode/walicode-server"]
+	path = walicode/walicode-server
+	url = git@gitcode.net:KnowledgePlanet/walicode-server.git
+[submodule "walissh/walissh-client"]
+	path = walissh/walissh-client
+	url = git@gitcode.net:KnowledgePlanet/walissh-client.git
+[submodule "walissh/walissh-server"]
+	path = walissh/walissh-server
+	url = git@gitcode.net:KnowledgePlanet/walissh-server.git
