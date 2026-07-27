@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="agent-os — 本地优先的 AI Agent 工具集：WaLiAPI 模型网关、walicode AI 编码工作台、walissh 智能 SSH 终端。">
+<title>agent-os — 本地优先的 AI Agent 工具集</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ---------- tokens ---------- */
+  :root {
+    --bg:        #0a0d0b;
+    --surface:   rgba(255,255,255,0.025);
+    --surface-2: rgba(255,255,255,0.045);
+    --border:    rgba(110, 220, 155, 0.14);
+    --border-hi: rgba(110, 220, 155, 0.32);
+    --text:      #c9d8cd;
+    --dim:       #67766b;
+    --faint:     #45524a;
+    --green:     #46e08a;
+    --green-lo:  #2a9e60;
+    --amber:     #e8b45a;
+    --red:       #e8735f;
+    --r-sm: 2px;
+    --r-md: 4px;
+    --maxw: 1080px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* CRT scanlines — 静态纹理，不动画 */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      rgba(0,0,0,0.12) 2px 3px
+    );
+    opacity: 0.5;
+    z-index: 9999;
+  }
+
+  ::selection { background: rgba(70, 224, 138, 0.25); color: #eafff2; }
+
+  .skip-link {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--green); color: #04140b;
+    padding: 8px 16px; z-index: 10000; font-weight: 700;
+  }
+  .skip-link:focus { left: 0; }
+
+  a { color: var(--green); text-decoration: none; }
+  @media (hover:hover) {
+    a:hover { text-shadow: 0 0 12px rgba(70,224,138,0.6); }
+  }
+  a:focus-visible, button:focus-visible {
+    outline: 1px solid var(--green);
+    outline-offset: 3px;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- top status bar ---------- */
+  .statusbar {
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--dim);
+    padding: 10px 0;
+    letter-spacing: 0.02em;
+  }
+  .statusbar .wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .statusbar .path { color: var(--text); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .dot.g { background: var(--green); box-shadow: 0 0 8px rgba(70,224,138,0.8); }
+  .dot.a { background: var(--amber); }
+  .statusbar .spacer { flex: 1; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 88px 0 64px; }
+  .hero .kicker {
+    color: var(--dim); font-size: 13px; margin-bottom: 22px;
+  }
+  .hero h1 {
+    font-size: clamp(44px, 8vw, 88px);
+    font-weight: 800;
+    letter-spacing: -0.022em;
+    line-height: 1.02;
+    color: #e8f4ec;
+    text-wrap: balance;
+  }
+  .hero h1 .cursor-block {
+    display: inline-block;
+    width: 0.55em; height: 0.82em;
+    background: var(--green);
+    vertical-align: -0.06em;
+    margin-left: 0.08em;
+    animation: blink 1.06s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .hero .sub {
+    margin-top: 26px;
+    max-width: 62ch;
+    color: var(--dim);
+    font-size: 15.5px;
+    text-wrap: pretty;
+  }
+  .hero .sub b { color: var(--text); font-weight: 500; }
+  .hero .clone {
+    margin-top: 34px;
+    display: inline-flex; align-items: center; gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 12px 16px;
+    font-size: 13.5px;
+    flex-wrap: wrap;
+  }
+  .hero .clone .ps1 { color: var(--green); user-select: none; }
+  .hero .clone code { color: var(--text); }
+  .copy-btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 5px 12px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition-property: color, border-color, transform;
+    transition-duration: 150ms;
+  }
+  .copy-btn:active { transform: scale(0.96); }
+  @media (hover:hover) {
+    .copy-btn:hover { color: var(--green); border-color: var(--border-hi); }
+  }
+
+  /* ---------- terminal window ---------- */
+  .term {
+    margin: 56px 0 0;
+    background: #070907;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+    overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; color: var(--dim);
+  }
+  .term-bar .led { width: 10px; height: 10px; border-radius: 50%; }
+  .term-bar .led.r { background: #5f2c25; } .term-bar .led.y { background: #5f4d25; } .term-bar .led.g { background: #265f3a; }
+  .term-bar .title { margin-left: 10px; user-select: none; }
+  .term-bar .replay {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--dim); background: none;
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    padding: 3px 10px; cursor: pointer;
+    touch-action: manipulation;
+    transition-property: color, border-color, transform;
+    transition-duration: 150ms;
+  }
+  .term-bar .replay:active { transform: scale(0.96); }
+  @media (hover:hover) { .term-bar .replay:hover { color: var(--green); border-color: var(--border-hi); } }
+  .term-body {
+    padding: 20px 22px 24px;
+    font-size: 13.5px;
+    line-height: 1.85;
+    min-height: 380px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .term-body .ln { display: block; }
+  .term-body .ps1 { color: var(--green); }
+  .term-body .c-dim   { color: var(--dim); }
+  .term-body .c-faint { color: var(--faint); }
+  .term-body .c-green { color: var(--green); }
+  .term-body .c-amber { color: var(--amber); }
+  .term-body .c-text  { color: var(--text); }
+  .term-body .caret {
+    display: inline-block; width: 8px; height: 15px;
+    background: var(--green); vertical-align: -2px;
+    animation: blink 1.06s steps(1) infinite;
+  }
+
+  /* ---------- sections ---------- */
+  section { padding: 96px 0 24px; }
+  .sec-head { margin-bottom: 48px; }
+  .sec-head .cmd {
+    font-size: 14px; color: var(--green);
+    display: block; min-height: 1.6em;
+  }
+  .sec-head .cmd .caret {
+    display: inline-block; width: 7px; height: 13px;
+    background: var(--green); vertical-align: -2px;
+    animation: blink 1.06s steps(1) infinite;
+  }
+  .sec-head h2 {
+    margin-top: 10px;
+    font-size: clamp(24px, 3.6vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    color: #e8f4ec;
+    text-wrap: balance;
+  }
+  .sec-head p { margin-top: 10px; color: var(--dim); max-width: 62ch; text-wrap: pretty; }
+
+  /* reveal on scroll */
+  .rv { opacity: 0; transform: translateY(12px); transition-property: opacity, transform; transition-duration: 500ms; transition-timing-function: cubic-bezier(0.16,1,0.3,1); }
+  .rv.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .rv { opacity: 1; transform: none; transition: none; }
+    .hero h1 .cursor-block, .term-body .caret, .sec-head .cmd .caret { animation: none; }
+  }
+
+  /* ---------- products ---------- */
+  .prod { border-top: 1px solid var(--border); padding: 40px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+  .prod:last-of-type { border-bottom: 1px solid var(--border); }
+  .prod .meta .tag {
+    font-size: 11px; color: var(--amber); letter-spacing: 0.14em;
+  }
+  .prod h3 { font-size: 24px; font-weight: 700; color: #e8f4ec; margin: 8px 0 4px; letter-spacing: -0.012em; }
+  .prod .role { color: var(--dim); font-size: 14px; }
+  .prod .desc { margin-top: 18px; color: var(--text); font-size: 14.5px; max-width: 56ch; text-wrap: pretty; }
+  .prod ul { list-style: none; margin-top: 18px; font-size: 13.5px; color: var(--dim); }
+  .prod ul li { padding: 5px 0; }
+  .prod ul li::before { content: "▸ "; color: var(--green); }
+  .prod .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+    font-size: 13px;
+    line-height: 1.9;
+  }
+  .prod .panel .ph { color: var(--faint); font-size: 12px; margin-bottom: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 4px 10px;
+    font-size: 12px; color: var(--dim);
+    background: transparent;
+    transition-property: color, border-color;
+    transition-duration: 150ms;
+  }
+  @media (hover:hover) { .chip:hover { color: var(--green); border-color: var(--border-hi); } }
+  .prod .arch-note { margin-top: 14px; font-size: 12.5px; color: var(--faint); }
+
+  /* ---------- architecture ---------- */
+  .arch-diagram {
+    background: #070907;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 28px 26px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
+  .arch-diagram pre { font-family: var(--mono); color: var(--dim); }
+  .arch-diagram .nd { color: var(--green); font-weight: 700; }
+  .arch-diagram .nd2 { color: var(--amber); font-weight: 700; }
+  .arch-diagram .tx { color: var(--text); }
+
+  /* ---------- engine chain ---------- */
+  .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+  .node {
+    border: 1px solid var(--border-hi);
+    border-radius: var(--r-sm);
+    padding: 10px 16px;
+    font-size: 13px; color: var(--text);
+    background: var(--surface);
+  }
+  .node b { color: var(--green); font-weight: 700; }
+  .node.hot { border-color: var(--amber); }
+  .node.hot b { color: var(--amber); }
+  .arrow { color: var(--faint); font-size: 13px; user-select: none; }
+  .loop-note { width: 100%; margin-top: 14px; font-size: 12.5px; color: var(--dim); }
+  .loop-note .c-amber { color: var(--amber); }
+
+  /* ---------- quickstart ---------- */
+  .qs {
+    background: #070907;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .qs .term-bar { justify-content: flex-start; }
+  .qs-body { padding: 22px 24px; font-size: 13.5px; line-height: 2.0; }
+  .qs-body .ln { display: block; }
+  .qs-body .cm { color: var(--faint); }
+  .qs-body .ps1 { color: var(--green); user-select: none; }
+  .qs-body code { color: var(--text); }
+  .ports { margin-top: 28px; font-size: 13px; color: var(--dim); display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 32px; }
+  .ports span b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 110px;
+    border-top: 1px solid var(--border);
+    padding: 28px 0 44px;
+    font-size: 12.5px; color: var(--faint);
+  }
+  footer .wrap { display: flex; gap: 20px; flex-wrap: wrap; align-items: baseline; }
+  footer .spacer { flex: 1; }
+  footer a { color: var(--dim); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 760px) {
+    .hero { padding: 56px 0 40px; }
+    .prod { grid-template-columns: 1fr; gap: 24px; }
+    .term-body { font-size: 12px; min-height: 340px; padding: 16px; }
+    section { padding: 64px 0 16px; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+
+<div class="statusbar">
+  <div class="wrap">
+    <span class="path">~/workspace/agent-os</span>
+    <span><span class="dot g"></span>3 modules loaded</span>
+    <span><span class="dot a"></span>local-first</span>
+    <span class="spacer"></span>
+    <span>zsh · 80×24</span>
+  </div>
+</div>
+
+<main id="main">
+  <!-- ============ HERO ============ -->
+  <header class="hero wrap">
+    <p class="kicker"># 本地优先的 AI Agent 工具集 · by 小傅哥 xiaofuge</p>
+    <h1>agent-os<span class="cursor-block" aria-hidden="true"></span></h1>
+    <p class="sub">
+      三个独立又互联的子项目：<b>WaLiAPI</b> 把十家模型供应商统一成 OpenAI 兼容协议；
+      <b>walicode</b> 在服务端跑完整的 ReAct 引擎，替你编码和运维；
+      <b>walissh</b> 让 SSH 终端听得懂人话。AI 在服务端思考，权限在你手里。
+    </p>
+    <div class="clone">
+      <span class="ps1">$</span>
+      <code>git clone --recursive https://github.com/wuxiy/agent-os.git</code>
+      <button class="copy-btn" data-copy="git clone --recursive https://github.com/wuxiy/agent-os.git" aria-label="复制克隆命令">copy</button>
+    </div>
+
+    <div class="term" role="img" aria-label="终端演示：walicode 执行一次带权限确认的磁盘清理 ReAct 任务">
+      <div class="term-bar">
+        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+        <span class="title">agent@walicode — chat_stream (SSE)</span>
+        <button class="replay" id="replay">↻ replay</button>
+      </div>
+      <div class="term-body" id="term"></div>
+    </div>
+  </header>
+
+  <!-- ============ PRODUCTS ============ -->
+  <section class="wrap" id="products">
+    <div class="sec-head">
+      <span class="cmd" data-type="ls -la ./products/"></span>
+      <h2>三个子项目，各司其职</h2>
+      <p>每个子项目都是独立 git 仓库、独立演进；通过 git submodule 聚合在本工作区，可单独拉取更新。</p>
+    </div>
+
+    <!-- walicode 旗舰 -->
+    <article class="prod rv">
+      <div class="meta">
+        <span class="tag">FLAGSHIP</span>
+        <h3>walicode</h3>
+        <p class="role">AI Coding + DevOps 工作台</p>
+        <p class="desc">
+          Agent 的大脑住在 Spring Boot 服务端：双层意图识别（规则 + LLM）、任务拆解、
+          上下文裁剪与压缩、核心记忆。Tauri 客户端只是壳——连你本机的命令，
+          也是服务端通过反向通道（127.0.0.1:17890）请求执行，且必须经你点确认。
+        </p>
+        <ul>
+          <li>ReAct 节点链 + 策略树多线程路由</li>
+          <li>PermissionGuard 危险操作人工确认</li>
+          <li>MCP / Skills / 声明式 Agent 装配（改 YAML 不改 Java）</li>
+          <li>core_memory 长期记忆：记住你的纠正与偏好</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="ph"># agent/code-agent.yml — Agent 声明式装配</p>
+        <span class="c-dim">agent:</span><br>
+        &nbsp;&nbsp;<span class="c-text">name:</span> <span class="c-green">code-agent</span><br>
+        &nbsp;&nbsp;<span class="c-text">model:</span> <span class="c-text">gpt-4o</span>  <span class="c-faint"># 经 WaLiAPI 路由</span><br>
+        &nbsp;&nbsp;<span class="c-text">tools:</span> <span class="c-amber">[ssh_exec, sftp, local_exec, mcp]</span><br>
+        &nbsp;&nbsp;<span class="c-text">reactBudget:</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-text">contextTokenBudget:</span> <span class="c-green">8000</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-text">maxRounds:</span> <span class="c-green">12</span><br>
+        &nbsp;&nbsp;<span class="c-text">permission:</span> <span class="c-amber">confirm-on-danger</span>
+      </div>
+    </article>
+
+    <!-- WaLiAPI -->
+    <article class="prod rv">
+      <div class="meta">
+        <span class="tag">GATEWAY</span>
+        <h3>WaLiAPI</h3>
+        <p class="role">本地 LLM API 网关 · 127.0.0.1:8777</p>
+        <p class="desc">
+          一个自生成的 <code>sk-waliapi-*</code> 密钥，接入十家上游供应商。
+          内嵌 Axum 服务对外暴露 OpenAI、Anthropic、Responses 三套协议端点，
+          渠道按优先级 + 权重调度，失败自动切换；敏感信息在出网关前完成扫描、脱敏或阻断。
+        </p>
+        <p class="arch-note">Tauri 2 + Rust/Axum · React 19 仪表盘 · SQLite 审计日志</p>
+      </div>
+      <div class="panel">
+        <p class="ph"># 10 个渠道 · 优先级+权重负载均衡</p>
+        <div class="chips">
+          <span class="chip">OpenAI</span><span class="chip">Claude</span>
+          <span class="chip">DeepSeek</span><span class="chip">Gemini</span>
+          <span class="chip">智谱</span><span class="chip">通义</span>
+          <span class="chip">Moonshot</span><span class="chip">豆包</span>
+          <span class="chip">Ollama</span><span class="chip">自定义</span>
+        </div>
+        <p style="margin-top:16px" class="c-dim">POST /v1/chat/completions<br>POST /v1/messages<br>POST /v1/responses</p>
+      </div>
+    </article>
+
+    <!-- walissh -->
+    <article class="prod rv">
+      <div class="meta">
+        <span class="tag">LEGACY · 归档维护</span>
+        <h3>walissh</h3>
+        <p class="role">AI 驱动的智能 SSH 运维终端</p>
+        <p class="desc">
+          walicode 的前身，保留了最纯粹的一条链路：xterm.js 终端 + SFTP 文件管理 +
+          AI 运维助手。SSH 密码以 AES-256-GCM 加密落库，连接与命令全部在服务端执行。
+          想看这套架构最小可行形态，读它。
+        </p>
+        <ul>
+          <li>终端走 HTTP 轮询模型，无 WebSocket 依赖</li>
+          <li>双层意图识别：指代消解后直连目标机</li>
+          <li>代码、配置、SQL 中仍可见 walicode 的演进痕迹</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="ph"># terminal session — HTTP 轮询模型</p>
+        <span class="c-green">$</span> <span class="c-text">open</span>   <span class="c-faint"># 建会话 → sessionId</span><br>
+        <span class="c-green">$</span> <span class="c-text">write</span>  <span class="c-faint"># 发字节 "top -b -n1\n"</span><br>
+        <span class="c-green">$</span> <span class="c-text">read</span>   <span class="c-faint"># 轮询读缓冲 ← 终端回显</span><br>
+        <span class="c-dim"># AI 侧：walissh chat "看看 load 为什么这么高"</span>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section class="wrap" id="arch">
+    <div class="sec-head">
+      <span class="cmd" data-type="cat ./architecture.txt"></span>
+      <h2>数据怎么流动</h2>
+      <p>客户端不发一字节 SSH、不碰一次模型 API——所有敏感操作都在服务端，模型流量统一经本地网关出去。</p>
+    </div>
+    <div class="arch-diagram rv">
+<pre aria-label="系统架构图">
+┌─────────────┐                ┌────────────────────┐               ┌───────────┐
+│  <span class="nd">client</span>     │   HTTP + SSE   │  <span class="nd">agent server</span>       │  OpenAI 兼容  │  <span class="nd2">WaLiAPI</span>   │     ┌────────────────┐
+│  (Tauri 壳)  │───────────────▶│  Spring Boot :8091 │──────────────▶│  :8777    │────▶│ 10 家模型供应商  │
+└─────────────┘                └────────────────────┘               └───────────┘     └────────────────┘
+                                      │        │
+                          ┌───────────┘        └────────────┐
+                          ▼                                 ▼
+                   ┌─────────────┐                  ┌──────────────┐
+                   │ <span class="tx">MySQL/Redis</span> │                  │ <span class="tx">SSH 目标机群</span>  │
+                   │  记忆/会话   │                  │  JSch 适配    │
+                   └─────────────┘                  └──────────────┘</pre>
+    </div>
+  </section>
+
+  <!-- ============ ENGINE ============ -->
+  <section class="wrap" id="engine">
+    <div class="sec-head">
+      <span class="cmd" data-type="./inspect react-engine --verbose"></span>
+      <h2>ReAct 引擎：思考、行动、观察、再思考</h2>
+      <p>不是一次 LLM 调用，而是一条可循环、可压缩上下文、可被人打断的节点链。</p>
+    </div>
+    <div class="rv">
+      <div class="chain" role="list" aria-label="ReAct 节点链">
+        <span class="node" role="listitem"><b>RootNode</b> 建会话·载历史</span>
+        <span class="arrow">──▶</span>
+        <span class="node" role="listitem"><b>AiCallNode</b> 调模型</span>
+        <span class="arrow">──▶</span>
+        <span class="node hot" role="listitem"><b>ToolCallNode</b> 执行工具</span>
+        <span class="arrow">──▶</span>
+        <span class="node" role="listitem"><b>LoopDecisionNode</b> 继续?</span>
+        <span class="arrow">──▶</span>
+        <span class="node" role="listitem"><b>UserFeedbackNode</b> 输出</span>
+        <p class="loop-note">↺ 未完成任务回到 AiCallNode 继续循环 · <span class="c-amber">危险工具调用在 ToolCallNode 挂起，等待 PermissionConfirmManager 人工确认</span> · 上下文超预算时 ContextCompressor 四级降级（优先级裁剪 → 滑动窗口 → AI 摘要 → 兜底）</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUICKSTART ============ -->
+  <section class="wrap" id="quickstart">
+    <div class="sec-head">
+      <span class="cmd" data-type="cat ./QUICKSTART.md"></span>
+      <h2>五分钟跑起来</h2>
+      <p>一个脚本完成依赖检查、子模块、中间件、建库导数、服务端与客户端启动。</p>
+    </div>
+    <div class="qs rv">
+      <div class="term-bar">
+        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+        <span class="title">quick-start.sh</span>
+        <button class="replay copy-btn" data-copy="git clone --recursive https://github.com/wuxiy/agent-os.git && cd agent-os && ./quick-start.sh walicode" aria-label="复制快速启动命令">copy</button>
+      </div>
+      <div class="qs-body">
+        <span class="ln"><span class="cm"># 0 克隆（--recursive 拉取全部子模块）</span></span>
+        <span class="ln"><span class="ps1">$ </span><code>git clone --recursive https://github.com/wuxiy/agent-os.git && cd agent-os</code></span>
+        <span class="ln"><span class="cm"># 1 配置 LLM Key：walicode-server-app/.../application-dev.yml 与 agent/*.yml</span></span>
+        <span class="ln"><span class="cm">#   （也可以指向本机 WaLiAPI 网关 127.0.0.1:8777）</span></span>
+        <span class="ln"><span class="ps1">$ </span><code>./quick-start.sh walicode</code></span>
+        <span class="ln"><span class="cm">#   → docker 中间件 · MySQL 建库导数 · 服务端 :8091 · Tauri 客户端</span></span>
+        <span class="ln"><span class="cm"># 2 停止后台服务端</span></span>
+        <span class="ln"><span class="ps1">$ </span><code>./quick-start.sh walicode stop</code></span>
+      </div>
+    </div>
+    <div class="ports rv">
+      <span><b>8091</b> · agent server</span>
+      <span><b>8777</b> · WaLiAPI 网关</span>
+      <span><b>17890</b> · 本地命令反向通道</span>
+      <span><b>13306</b> · MySQL</span>
+      <span><b>16379</b> · Redis</span>
+      <span><b>5173</b> · Vite dev</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>agent-os</span>
+    <a href="https://github.com/wuxiy/agent-os">github.com/wuxiy/agent-os</a>
+    <span>仅限本机/内网部署 — 服务端无认证</span>
+    <span class="spacer"></span>
+    <span>EOF ▊</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- hero terminal ---------- */
+  var SCRIPT = [
+    { t: "cmd",  text: 'walicode chat "prod-01 磁盘快满了，帮我处理一下"' },
+    { t: "out",  cls: "c-dim",   text: "[intent] ops_exec · confidence 0.94 · 规则+LLM 双层识别" },
+    { t: "out",  cls: "c-dim",   text: "[plan  ] TaskBreakdown → 定位占用 → 清理日志 → 验证" },
+    { t: "out",  cls: "c-text",  text: "[think ] 先连 prod-01 看磁盘占用分布" },
+    { t: "out",  cls: "c-green", text: '[tool  ] ssh_exec host=prod-01 cmd="df -h / && du -sh /var/log/*"' },
+    { t: "out",  cls: "c-dim",   text: "[ ok   ] /dev/vda1 91% · /var/log/app 3.2G 为主要占用" },
+    { t: "out",  cls: "c-amber", text: "[guard ] find … -delete 触发 PermissionGuard" },
+    { t: "out",  cls: "c-amber", text: "[ask   ] 危险操作，等待确认 … 用户已批准 ✓" },
+    { t: "out",  cls: "c-green", text: '[tool  ] ssh_exec cmd="find /var/log/app -name \'*.gz\' -mtime +7 -delete"' },
+    { t: "out",  cls: "c-dim",   text: "[ ok   ] 已清理 1.8G · 磁盘降至 64%" },
+    { t: "out",  cls: "c-faint", text: "[done  ] 2 轮工具调用 · 4.1s · 全程服务端执行" }
+  ];
+
+  var term = document.getElementById("term");
+  var playTimer = null;
+
+  function caretEl() {
+    var c = document.createElement("span");
+    c.className = "caret";
+    return c;
+  }
+
+  function play() {
+    clearTimeout(playTimer);
+    term.innerHTML = "";
+    if (reduced) {
+      SCRIPT.forEach(function (s) {
+        var ln = document.createElement("span");
+        ln.className = "ln " + (s.cls || "c-text");
+        ln.textContent = (s.t === "cmd" ? "$ " : "") + s.text;
+        term.appendChild(ln);
+      });
+      return;
+    }
+    var i = 0;
+    function next() {
+      if (i >= SCRIPT.length) {
+        playTimer = setTimeout(play, 9000); /* 停留后重播 */
+        return;
+      }
+      var step = SCRIPT[i++];
+      var ln = document.createElement("span");
+      ln.className = "ln " + (step.cls || "c-text");
+      term.appendChild(ln);
+      if (step.t === "cmd") {
+        var ps = document.createElement("span");
+        ps.className = "ps1";
+        ps.textContent = "$ ";
+        ln.appendChild(ps);
+        var txt = document.createTextNode("");
+        ln.appendChild(txt);
+        var caret = caretEl();
+        ln.appendChild(caret);
+        var j = 0;
+        (function typeChar() {
+          if (j < step.text.length) {
+            txt.textContent += step.text[j++];
+            playTimer = setTimeout(typeChar, 26 + Math.random() * 40);
+          } else {
+            caret.remove();
+            playTimer = setTimeout(next, 420);
+          }
+        })();
+      } else {
+        ln.textContent = step.text;
+        playTimer = setTimeout(next, 300);
+      }
+    }
+    next();
+  }
+  play();
+  document.getElementById("replay").addEventListener("click", play);
+
+  /* ---------- section header typing ---------- */
+  var heads = document.querySelectorAll(".sec-head .cmd[data-type]");
+  function typeHead(el) {
+    var full = "$ " + el.getAttribute("data-type");
+    if (reduced) { el.textContent = full; return; }
+    var caret = caretEl();
+    el.appendChild(caret);
+    var j = 0;
+    (function tick() {
+      if (j < full.length) {
+        el.insertBefore(document.createTextNode(full[j++]), caret);
+        setTimeout(tick, 34);
+      }
+    })();
+  }
+
+  /* ---------- scroll reveal + header typing ---------- */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      if (e.target.classList.contains("cmd")) typeHead(e.target);
+      else e.target.classList.add("in");
+      io.unobserve(e.target);
+    });
+  }, { threshold: 0.35 });
+  heads.forEach(function (h) { io.observe(h); });
+  document.querySelectorAll(".rv").forEach(function (el, idx) {
+    el.style.transitionDelay = (idx % 3) * 100 + "ms";
+    io.observe(el);
+  });
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll(".copy-btn[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var done = function () {
+        var old = btn.textContent;
+        btn.textContent = "copied";
+        setTimeout(function () { btn.textContent = old; }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(btn.getAttribute("data-copy")).then(done, done);
+      } else { done(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
