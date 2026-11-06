@@ -356,7 +356,7 @@
     <p class="kicker"># 本地优先的 AI Agent 工具集 · by 小傅哥 xiaofuge</p>
     <h1>agent-os<span class="cursor-block" aria-hidden="true"></span></h1>
     <p class="sub">
-      三个独立又互联的子项目：<b>WaLiAPI</b> 把十家模型供应商统一成 OpenAI 兼容协议；
+      三个独立又互联的子项目：<b>WaLiAPI</b> 把 API Key、免费、OAuth 账号三类渠道统一成一个多协议网关；
       <b>walicode</b> 在服务端跑完整的 ReAct 引擎，替你编码和运维；
       <b>walissh</b> 让 SSH 终端听得懂人话。AI 在服务端思考，权限在你手里。
     </p>
@@ -422,20 +422,22 @@
         <h3>WaLiAPI</h3>
         <p class="role">本地 LLM API 网关 · 127.0.0.1:8777</p>
         <p class="desc">
-          一个自生成的 <code>sk-waliapi-*</code> 密钥，接入十家上游供应商。
+          一个自生成的 <code>sk-waliapi-*</code> 密钥，接入 API Key、免费（OpenCode/Kilo 开箱即用）、
+          OAuth 账号（Codex/Kimi/Antigravity 等）三类上游渠道。
           内嵌 Axum 服务对外暴露 OpenAI、Anthropic、Responses 三套协议端点，
-          渠道按优先级 + 权重调度，失败自动切换；敏感信息在出网关前完成扫描、脱敏或阻断。
+          渠道按优先级 + 权重调度，失败自动切换；敏感信息在出网关前完成扫描、脱敏或阻断；
+          内置 RAG 知识库与 LLM-Wiki，经 <code>/mcp</code>、<code>/api/kb</code> 提供给 Agent 检索。
         </p>
-        <p class="arch-note">Tauri 2 + Rust/Axum · React 19 仪表盘 · SQLite 审计日志</p>
+        <p class="arch-note">Tauri 2 + Rust/Axum · React 19 仪表盘 · SQLite 审计日志 + 知识库</p>
       </div>
       <div class="panel">
-        <p class="ph"># 10 个渠道 · 优先级+权重负载均衡</p>
+        <p class="ph"># 三类上游渠道 · 优先级+权重负载均衡</p>
         <div class="chips">
           <span class="chip">OpenAI</span><span class="chip">Claude</span>
           <span class="chip">DeepSeek</span><span class="chip">Gemini</span>
           <span class="chip">智谱</span><span class="chip">通义</span>
           <span class="chip">Moonshot</span><span class="chip">豆包</span>
-          <span class="chip">Ollama</span><span class="chip">自定义</span>
+          <span class="chip">免费渠道 OpenCode</span><span class="chip">账号渠道 Codex</span>
         </div>
         <p style="margin-top:16px" class="c-dim">POST /v1/chat/completions<br>POST /v1/messages<br>POST /v1/responses</p>
       </div>
@@ -479,7 +481,7 @@
 <pre aria-label="系统架构图">
 ┌─────────────┐                ┌────────────────────┐               ┌───────────┐
 │  <span class="nd">client</span>     │   HTTP + SSE   │  <span class="nd">agent server</span>       │  OpenAI 兼容  │  <span class="nd2">WaLiAPI</span>   │     ┌────────────────┐
-│  (Tauri 壳)  │───────────────▶│  Spring Boot :8091 │──────────────▶│  :8777    │────▶│ 10 家模型供应商  │
+│  (Tauri 壳)  │───────────────▶│  Spring Boot :8091 │──────────────▶│  :8777    │────▶│ 多家上游模型渠道 │
 └─────────────┘                └────────────────────┘               └───────────┘     └────────────────┘
                                       │        │
                           ┌───────────┘        └────────────┐

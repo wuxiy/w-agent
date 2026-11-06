@@ -4,11 +4,11 @@
 
 ## 工作区概览
 
-`/Users/wuxi/workspace/tool/agent-os` **不是一个单一项目，也不含顶层构建配置**，它是三个相互关联但各自独立的子项目的工作区目录（作者均为小傅哥 xiaofuge / fuzhengwei，文档与注释以中文为主）：
+`/Users/wuxi/workspace/ai/w-agent` **不是一个单一项目，也不含顶层构建配置**，它是三个相互关联但各自独立的子项目的工作区目录（作者均为小傅哥 xiaofuge / fuzhengwei，文档与注释以中文为主）：
 
 | 子项目 | 说明 | 形态 |
 |---|---|---|
-| `WaLiAPI/` | 本地 LLM API 网关：将多家上游模型供应商统一为 OpenAI 兼容协议 | Tauri 2 桌面应用（React + Rust），独立 git 仓库 |
+| `WaLiAPI/` | 本地 LLM API 网关：API/免费/OAuth 账号三类上游渠道统一为多协议入口，内置 RAG 知识库、LLM-Wiki 与 MCP 工具服务（当前 v0.4.5，有独立的 `AGENTS.md`） | Tauri 2 桌面应用（React + Rust），独立 git 仓库 |
 | `walicode/` | WaLiCode：AI 辅助编码/运维系统（AI Coding + DevOps） | `walicode-client`（Tauri 桌面端）+ `walicode-server`（Spring Boot 服务端），各自独立 git 仓库 |
 | `walissh/` | WaLiSSH：AI 驱动的智能 SSH 运维终端 | `walissh-client`（Tauri 桌面端）+ `walissh-server`（Spring Boot 服务端），根目录有 `CLAUDE.md` |
 
@@ -21,10 +21,12 @@
 ## WaLiAPI（`WaLiAPI/`）
 
 ### 项目用途
-本地运行的 LLM API 网关桌面应用。把 OpenAI、Claude、DeepSeek、Gemini、智谱、通义、Moonshot、豆包、Ollama、自定义共 10 种渠道统一为 OpenAI 兼容协议，内嵌 Axum HTTP 服务（默认 `http://127.0.0.1:8777`），暴露 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`（Anthropic）、`/v1/models`、`/health` 等端点，下游用自生成的 `sk-waliapi-*` 密钥认证。附带仪表盘、请求审计日志、安全审计中心（敏感信息扫描/脱敏/阻断）、渠道优先级+权重负载均衡与故障切换。
+本地运行的 LLM API 网关桌面应用（当前版本 v0.4.5）。上游分**三类渠道**：API Key 渠道（预设含 OpenAI/Claude/DeepSeek/Gemini/智谱/通义/Moonshot/豆包/StepFun 等）、免费渠道（OpenCode 免费车道、Kilo 免费池免 Key 开箱即用，另带 Groq/Cerebras/ModelScope/硅基流动等 11 个免费层预设）、OAuth 账号渠道（Codex/Kimi/Antigravity/Qoder/WorkBuddy/Grok 登录账号额度）。内嵌 Axum HTTP 服务（默认 `http://127.0.0.1:8777`），下游可用三种协议接入——`/v1/chat/completions`（OpenAI Chat）、`/v1/responses`（OpenAI Responses）、`/v1/messages`（Anthropic），另有 `/v1/models`、`/health`，以及 `/mcp`（MCP 工具服务）与 `/api/kb/*`（知识库 REST）——统一用自生成的 `sk-waliapi-*` 密钥认证。
+
+除网关本职（多协议双向转换、渠道优先级+权重负载均衡、单渠道多 Key 加权轮询、健康探测、故障切换、配额记账、语义缓存）外，还内置**知识服务**：RAG 知识库（解析→分块→向量化，HNSW+FTS5 混合检索问答）、LLM-Wiki（Markdown 页面+知识图谱），可经 MCP/REST 对外暴露给 Agent。安全审计中心提供 25+ 条内置规则（敏感信息扫描、路径暴露、Unicode 隐写），支持只审计/警告/脱敏/阻断四种策略；全量请求/响应审计落库可检索。
 
 ### 技术栈
-- 前端（`WaLiAPI/src/`）：React 19 + TypeScript + Vite 7，Tailwind CSS 4（shadcn/ui 风格），React Router 7、Zustand 5、TanStack Query 5、`@tauri-apps/api` v2。包管理器用 **pnpm**（有 `pnpm-lock.yaml`）。
+- 前端（`WaLiAPI/src/`）：React 19 + TypeScript + Vite 7，Tailwind CSS 4（shadcn/ui 风格），react-router-dom 7、`@tauri-apps/api` v2。包管理器用 **pnpm**（有 `pnpm-lock.yaml`）。
 - 后端（`WaLiAPI/src-tauri/`，Rust Edition 2021）：Tauri 2 + 多个官方插件（sql/store/clipboard/notification/autostart 等）；Axum 0.8 + Tokio 内嵌 HTTP 服务；reqwest（SSE 流式转发）；sqlx 0.8（SQLite，自动迁移）。
 
 ### 构建与开发
@@ -36,22 +38,24 @@ pnpm build          # tsc && vite build（唯一的前端检查）
 pnpm tauri build    # 发布构建
 ```
 - 无 Makefile；`start.sh` 仅一行 `npm run tauri dev`。
-- **没有任何测试**：无测试框架、无测试代码（Rust 侧也无 `#[test]`），无 ESLint/Prettier/rustfmt 配置。代码保障仅靠 `pnpm build` 中的 `tsc` 类型检查。
-- 发布：`.github/workflows/` 下 4 个 tauri-action 工作流，按平台前缀 tag 触发（`macos-arm64-v*`、`all-v*`、`all-win-v*`、`linux-v*`）。版本号需在 `package.json`、`Cargo.toml`、`tauri.conf.json` 三处同步。
+- **测试**：Rust 侧已有大量单元/集成测试（`src-tauri/src/` 下 120+ 个文件含 `#[test]`/`#[tokio::test]`，含 `server/` 协议与知识库访问、`auth_integration_tests.rs` 等集成测试，用 `cargo test` 运行）；前端有少量独立测试脚本（`src/lib/*.test.mjs`，未挂到 npm scripts）。无 ESLint/Prettier/rustfmt 配置，前端主要检查仍是 `pnpm build` 中的 `tsc` 类型检查。
+- 发布：`.github/workflows/` 下 6 个发布工作流（`release-macos-arm64` / `release-macos-intel` / `release-windows` / `release-linux` / `release-docker` / `release-web`），按平台前缀 tag 触发。版本号需在 `package.json`、`Cargo.toml`、`tauri.conf.json` 三处同步。
 
 ### 代码组织
-- 前端 `src/`：入口 `main.tsx` → `App.tsx`（6 条路由）；`pages/` 6 个页面（Dashboard/Channels/ApiKeys/Logs/Usage/Settings）；`lib/api.ts` 封装全部 Tauri invoke；`lib/constants.ts` 定义 10 种渠道类型。
+- 前端 `src/`：入口 `main.tsx` → `App.tsx`（约 16 条路由）；`pages/` 10 个页面（Dashboard/Usage/Channels/AuthChannels（OAuth 账号渠道）/ApiKeys/Logs/Settings/KnowledgeBase（`/services/*` 聚合知识库·MCP·Wiki·Skills·Prompts·Software 标签）/Software/AppConfig）；`lib/api.ts` 封装 Tauri invoke；渠道类型/预设的唯一可信源是后端 registry（`channel_presets.rs` + `get_channel_presets`），前端 `lib/constants.ts` 不再硬编码渠道清单。
 - 后端 `src-tauri/src/`：
-  - `server/`：Axum 路由与三大协议处理器（`handlers.rs`）；
+  - `server/`：Axum 路由与三大协议处理器（`handlers.rs`、`router.rs`）、`admin*.rs`（管理接口）、`knowledge_access.rs`（`/mcp` 与 `/api/kb/*` 知识服务鉴权与路由）、`static_assets.rs`（Web 部署形态）；
   - `adaptor/`：`Adaptor` trait + openai/claude/deepseek/gemini/custom 实现（其余渠道类型落到 custom）；
+  - `auth_provider/`：OAuth 账号渠道后端（codex/kimi/gemini/grok/antigravity 等登录与额度）；
+  - `services/`：知识库（RAG）、MCP 工具服务、LLM-Wiki、软件对接（`software/`）、内置免费渠道、上游模型同步等领域服务；
   - `protocol/`：OpenAI ↔ Anthropic/Responses 协议双向转换（含 SSE）；
-  - `core/`：`dispatcher.rs`（优先级+权重选渠道）、`proxy.rs`（转发主流程：安全扫描→脱敏/阻断→调度→调用→写日志）；
-  - `security/`：风险扫描、脱敏、内置规则；
-  - `commands/`：9 个模块共 43 个 Tauri Commands（在 `lib.rs` 注册）；
-  - `db/`：sqlx 连接池 + `sqlx::migrate!`（迁移在 `src-tauri/migrations/`，注意存在两个 005 前缀文件）+ repository。
-- 数据库：SQLite，文件在应用数据目录 `waliapi.db`；核心表 `channels`、`api_keys`、`request_logs`。**上游真实 API Key 明文存本地 SQLite**。
+  - `core/`：`dispatcher.rs`（优先级+权重选渠道）、`proxy.rs`（转发主流程：安全扫描→脱敏/阻断→调度→调用→写日志）；根级另有 `semantic_cache.rs`（语义缓存）、`health_probe.rs`（渠道健康探测）、`prompt_templates.rs`、`otlp_exporter.rs`、`web_server.rs` 等；
+  - `security/`：风险扫描、脱敏、内置规则（25+ 条）；
+  - `commands/`：17 个模块共 170+ 个 Tauri Commands（在 `lib.rs` 注册）；
+  - `db/`：sqlx 连接池 + `sqlx::migrate!` + repository。
+- 数据库：SQLite，文件在应用数据目录 `waliapi.db`；迁移在 `src-tauri/migrations/`（000~053 共 50+ 个文件）。核心表除 `channels`、`api_keys`、`request_logs` 外，随版本扩展了 auth 账号/额度、知识库（文档/向量/分块）、wiki、软件实例、usage 统计等。**上游真实 API Key 明文存本地 SQLite**。
 - 运行时设置存 `tauri-plugin-store` 的 `settings.json`。
-- 根目录另有两份中文过程文档：`waliapi_build_complete_20260718.md`（架构决策记录）、`waliapi_usage_guide_20260718.md`（使用指南）。
+- 文档：`WaLiAPI/AGENTS.md` 是该项目的权威开发指南（改动 WaLiAPI 前先读它）；另有 `CHANGELOG.md`、`docs/` 下多份设计文档（RAG/MCP 网关/渠道协议重构等）；根目录两份 2026-07 的过程文档（`waliapi_build_complete_20260718.md`、`waliapi_usage_guide_20260718.md`）对应 0.1.x 时代，内容已偏旧，仅作参考。
 
 ---
 
@@ -136,7 +140,7 @@ npm run build                      # tsc && vite build
   ```bash
   mvn -pl walissh-server-app test -Dtest=ApiTest   # 运行指定测试
   ```
-- 所有前端/Rust 代码均无测试、无 lint/format 配置；前端唯一检查是 `npm run build` 里的 `tsc`。新增代码应跟随现有文件的中文注释与命名风格。
+- 前端代码均无测试框架挂载、无 lint/format 配置，唯一检查是 `npm run build` 里的 `tsc`；**例外**：WaLiAPI 的 Rust 侧已有大量测试（见上文 WaLiAPI 章节，`cargo test` 可跑）。新增代码应跟随现有文件的中文注释与命名风格。
 
 ## 安全注意事项
 

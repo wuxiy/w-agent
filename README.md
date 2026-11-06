@@ -6,7 +6,7 @@ AI Agent 开发与运维工具集工作区。本仓库是**聚合仓库**（母�
 
 | 子项目 | 说明 | 形态 | 上游仓库 |
 |---|---|---|---|
-| `WaLiAPI/` | 本地 LLM API 网关：将 10 家模型供应商统一为 OpenAI 兼容协议 | Tauri 2 桌面应用（React 19 + Rust/Axum） | [fuzhengwei/WaLiAPI](https://github.com/fuzhengwei/WaLiAPI) |
+| `WaLiAPI/` | 本地 LLM API 网关：API Key / 免费 / OAuth 账号三类上游渠道统一为多协议入口，内置 RAG 知识库、LLM-Wiki 与 MCP 工具服务（v0.4.5） | Tauri 2 桌面应用（React 19 + Rust/Axum） | [fuzhengwei/WaLiAPI](https://github.com/fuzhengwei/WaLiAPI) |
 | `walicode/` | WaLiCode：AI 辅助编码/运维系统（AI Coding + DevOps） | Tauri 桌面客户端 + Spring Boot 服务端 | gitcode.net/KnowledgePlanet |
 | `walissh/` | WaLiSSH：AI 驱动的智能 SSH 运维终端（walicode 的前身） | Tauri 桌面客户端 + Spring Boot 服务端 | gitcode.net/KnowledgePlanet |
 
@@ -39,9 +39,12 @@ AI Agent 开发与运维工具集工作区。本仓库是**聚合仓库**（母�
                │ OpenAI 兼容协议
 ┌──────────────▼───────────────────────────────────────────────┐
 │  WaLiAPI 本地 LLM 网关（http://127.0.0.1:8777）               │
-│  OpenAI / Claude / DeepSeek / Gemini / 智谱 / 通义 /          │
-│  Moonshot / 豆包 / Ollama / 自定义  →  统一 OpenAI 协议       │
-│  渠道优先级+权重负载均衡 · 故障切换 · 安全审计/脱敏 · 请求日志  │
+│  下游三协议：OpenAI Chat / Responses / Anthropic Messages     │
+│  上游三类渠道：API Key（OpenAI/Claude/DeepSeek/Gemini/智谱…） │
+│  · 免费（OpenCode/Kilo 免 Key + 11 家免费层预设）             │
+│  · OAuth 账号（Codex/Kimi/Antigravity/Qoder…）                │
+│  负载均衡+故障切换 · 安全审计/脱敏 · RAG 知识库 · LLM-Wiki    │
+│  · MCP 工具服务（/mcp、/api/kb）                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -132,8 +135,8 @@ npm run dev                      # 或纯前端调试（Vite @5173，/api 代理
 
 - `AGENTS.md` —— 面向 AI 编码代理的完整开发指南（技术栈、构建命令、代码组织、安全注意事项）
 - `walissh/CLAUDE.md` —— walissh 项目的权威开发指南（同样适用于 walicode）
-- `WaLiAPI/waliapi_build_complete_20260718.md` —— WaLiAPI 架构决策记录
-- `WaLiAPI/waliapi_usage_guide_20260718.md` —— WaLiAPI 使用指南
+- `WaLiAPI/AGENTS.md` —— WaLiAPI 项目自己的权威开发指南（v0.4.x）
+- `WaLiAPI/waliapi_build_complete_20260718.md` / `waliapi_usage_guide_20260718.md` —— WaLiAPI 0.1.x 时代的过程文档，已偏旧，仅作参考
 
 ## 安全提示
 
